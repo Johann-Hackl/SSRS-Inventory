@@ -11,4 +11,5 @@ http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition
 
 
 Details and behind the scenes:
-https://blogs.technet.microsoft.com/johannh/2017/08/25/sql-server-reporting-services-inventory-report-with-parameters-dependencies-and-permissions/
+
+http://htmlpreview.github.io/?https://github.com/Johann-Hackl/SSRS-Inventory/blob/master/index.html

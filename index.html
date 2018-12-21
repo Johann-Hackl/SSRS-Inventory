@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en-US" style="background-image: url(&quot;data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==&quot;);"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+	
+	<meta name="viewport" content="width=device-width">
+	<link rel="profile" href="http://gmpg.org/xfn/11">
+	<link rel="stylesheet" href="./css/bootstrap.min.css">
+<title>SQL Server Reporting Services: Inventory-Report with Parameters, Dependencies and Permissions – Dealing with the Microsoft Data Platform</title>
+<link rel="dns-prefetch" href="https://ajax.aspnetcdn.com/">
+<link rel="dns-prefetch" href="https://s.w.org/">
+		
+		<style type="text/css">
+img.wp-smiley,
+img.emoji {
+	display: inline !important;
+	border: none !important;
+	box-shadow: none !important;
+	height: 1em !important;
+	width: 1em !important;
+	margin: 0 .07em !important;
+	vertical-align: -0.1em !important;
+	background: none !important;
+	padding: 0 !important;
+}
+</style>
+<link rel="stylesheet" id="microsoft-parent-style-css" href="./css/style.css" type="text/css" media="all">
+<link rel="stylesheet" id="microsoft-child-style-css" href="./css/style(1).css" type="text/css" media="all">	
+<link href="./css/style(2).css" rel="stylesheet" type="text/css">
+<link href="./css/icons.css" rel="stylesheet" type="text/css">
+</head>
+<body class="post-template-default single single-post postid-215 single-format-standard">
+
+
+
+
+<div id="page" class="site container-fluid">
+	<div id="site-content" class="site-content row">
+
+	<div id="primary" class="content-area">
+		<div id="single-content" class="div-content">
+
+			
+				
+<article id="post-215" class="post-215 post type-post status-publish format-standard hentry category-sql-server category-ssms category-ssrs tag-sql-server tag-ssms tag-ssrs">
+
+	<header class="entry-header single">
+		<h1 class="entry-title">SQL Server Reporting Services: Inventory-Report with Parameters, Dependencies and Permissions</h1>		
+
+		<hr>
+	</header><!-- .entry-header -->
+
+	<div class="entry-content single">
+		<p>During a SSRS project with a lot of reports, there was the idea to have a detailed non-static documentation for the following aspects:</p>
+<ul>
+<li>Report-Server-Structure</li>
+<li>Permissions</li>
+<li>Parameters
+<ul>
+<li>Basic data like name, type etc.</li>
+<li>Value List, static or reference to dataset</li>
+<li>Default Value, static or reference to dataset</li>
+</ul>
+</li>
+<li>References
+<ul>
+<li>Shared DataSources</li>
+<li>Shared DataSets</li>
+<li>Subreports</li>
+<li>URL- and Report-Actions</li>
+<li>Referenced Assemblies</li>
+</ul>
+</li>
+<li>ReferencedBy =&gt; like References, only vice versa</li>
+</ul>
+<p>There are many good resources out there covering different parts of the story. But I haven't found one that covers all. Therefore, I dig deeper into the Report Server Database. Doing so also knowing that its structure may change with without notice by SQL Server Updates, Service Packs and Releases and that all queries must be done carefully, not affecting others using the Report Server.</p>
+<p>The result should also be neat and handy to be usable also directly within SQL Server Management Studio as Custom Report with no further requirements. And on top, it should work for a current SQL Server Reporting Services Instance (2016) in native mode and for SSRS 2012 in SharePoint-Integrated-Mode.</p>
+<h1>How the result should look like</h1>
+<p><strong>Basic View with Hierarchy and Control-Panel on top to add Parameter, References, ReferencedBy and Permissions on demand:</strong></p>
+<p><img width="874" height="650" class="alignnone wp-image-257" alt="" src="./media/Report-ReportResult-Permissions.png"></p>
+<p><strong>Parameters:</strong></p>
+<p><img width="2313" height="1166" class="alignnone size-full wp-image-255" alt="" src="./media/Report-ReportResult-Parameter.png"></p>
+<p><strong>References and Referenced By:</strong></p>
+<p><img width="810" height="650" class="alignnone wp-image-265" alt="" src="./media/Report-ReportResult-ReferencesAndReferencedBy.png"></p>
+<p>&nbsp;</p>
+<h1>Report Design</h1>
+<h2>Report Design</h2>
+<p>The design for the report consists of:</p>
+<ul>
+<li>Headline</li>
+<li>Table bound to a Dummy-Dataset, containing the TextBoxes used as Column-Toggle-Items in the Detail-Table</li>
+<li>Main-Table
+<ul>
+<li>containing icons for different element types</li>
+<li>Grouped by ItemID of Report and recursively connected by ParentID</li>
+<li>No Detail-Rows directly in Detail-Table, only a Group-Header-Row</li>
+<li>Basic columns with Icon, Name, Level (0, 1, 2, ... n), Hidden (true / false), Permission Type (set / inherited)</li>
+<li>Further columns for Parameters, References, Referenced By and Permissions
+<ul>
+<li>Column-Visibility could be toggled with textboxes of separate table</li>
+<li>2nd Header-Row of main-table also contains a sub-table for each column with the corresponding row-headers
+<ul>
+<li style="list-style-type: none">
+<ul>
+<li style="list-style-type: none"></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Detail rows and columns are in separate sub-tables
+<ul>
+<li>Tables are filtered with "[Relevant-Data-Column] &lt;&gt; Nothing"<br>
+=&gt; E.g. hide rows with empty Parameter-Data, same row may contain Permission-Data</li>
+<li>Detail-Columns contain Bookmark-Actions if the content references something else, e.g. Parameters based on Shared DataSets, Report-Actions, Subreports</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>&nbsp;Footer with data from a SystemInfo-Dataset containing the current SQL Server and database name
+<ul>
+<li>
+<pre>="Report " &amp; Globals!ReportName &amp; " executed by " &amp; User!UserID &amp; " on " &amp; First(Fields!ServerName.Value, "DSSystemInfo") &amp; ", Database '" &amp; First(Fields!DatabaseName.Value, "DSSystemInfo") &amp; "' at " &amp; Globals!ExecutionTime</pre>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote></blockquote>
+<h1>Report Data Elements</h1>
+<p>To get that basic design, the following data elements are used:</p>
+<ul>
+<li>Different icons for each element types</li>
+<li>Datasource pointing on the target ReportServer-Database</li>
+<li>Dummy-Dataset</li>
+<li>SystemInfo-Dataset</li>
+<li>CatalogDetails-Dataset with all the important data</li>
+</ul>
+<p>In Report Designer, it looks like:</p>
+<p><img width="255" height="468" class="wp-image-275 alignnone" alt="" src="./media/Report-ReportData-Basic.png"></p>
+<h2>Follow the rules: Reports for SQL Server Management Studio (SSMS)</h2>
+<p>In order to get the report executable also directly in SSMS, it may not reference Shared DataSources, Shared DataSets and Subreport, also Parameter-Handling is constrained. Therefore, the report does all the work itself, not referencing anything else but the Report Server Database.</p>
+<p><img width="512" height="400" class="alignnone wp-image-306" alt="" src="./media/SSMS-CustomReports.png"></p>
+<h2>Differences between Report Versions</h2>
+<p>There are only very few differences between the Report Definitions for SSRS 2008R2 (including 2012 / 2014) and SSRS 2016:</p>
+<ol>
+<li>Schema of RDL-File and namespace for XML-Queries within Main-Dataset
+<ul>
+<li>2008R2:&nbsp;http://schemas.microsoft.com/sqlserver/reporting/2010/01/reportdefinition</li>
+<li>2016:&nbsp;http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition</li>
+</ul>
+</li>
+<li>ReportParametersLayout<br>
+With SSRS 2016, the layout of the parameters is customizable. Within the RDL-File, this is stored as ReportParametersLayout-Element.</li>
+</ol>
+<p>The SSRS 2016 Report may also work with newer versions - as long as the schema doesn't change.</p>
+<h1>Getting the data</h1>
+<p><strong>The Report Server Database is intended as black box, not to be accessed directly. Therefore no offical documentation about the database structure exists. If you proceed to query it, do so with extreme caution and at your own risk.</strong></p>
+<h2>SharePoint-Integrated-Mode vs. Native-Mode</h2>
+<p>The Report Server Catalog mostly looks the same for SharePoint-Integrated-Mode and Native-Mode, except the following scenarios, handled by the query:</p>
+<ul>
+<li>Report-Elements stored with File-Extension, e.g. ".rdl" for Reports, ".rsd" for Shared DataSets and ".rsds" for Shared DataSources</li>
+<li>No report structure, only root-folder</li>
+</ul>
+<p>The DataSet-Query gets the basic element structure into Database-Temp-Tables (#...) first and then checks, if it runs on a SharePoint-Integrated-Mode Database - modifying the data in the Temp-Tables before further processing.</p>
+<p>Condition for SharePoint-Integrated-Mode:</p>
+<ul>
+<li>only one folder exists according to Catalog-Table</li>
+<li>but elements exist with paths signalizing sub-folders (several slashes in it, e.g. "/.../...")</li>
+</ul>
+<p>Actions:</p>
+<ul>
+<li>Remove extensions</li>
+<li>Generate intermediate folder structure</li>
+</ul>
+<p>In addition to that, permissions of SharePoint-Integrated-Mode are stored in SharePoint itself and not handled the query - and therefore not shown in the report. In this case, the ReportServer-Database only contains rudimentary permissions which are listed in the result. In case of Native-Mode, these stored permissions reflect the actual permissions.</p>
+<h2>Getting the details</h2>
+<p>Some of the data is directly available in tables, other is only available in the report definition (RDL-File) or in a separate XML-Block:</p>
+<ul>
+<li>Hierarchy and Basic Data
+<ul>
+<li>stored in the table dbo.Catalog</li>
+</ul>
+</li>
+<li>Parameter
+<ul>
+<li>stored in separate ParameterXml in dbo.Catalog, because it may differ from the actual report definition and modified through Report Server GUI (e.g. different label or default value)
+<ul>
+<li>separate XML is modified</li>
+<li>the report definition itself is untouched</li>
+</ul>
+</li>
+<li>in addition, the Values-DataSetName and DefaultValues-DataSetName is only available in the report definition</li>
+</ul>
+</li>
+<li>References
+<ul>
+<li>SharedDataSource
+<ul>
+<li>stored in the table dbo.DataSource</li>
+<li>the target item can be linked in the report</li>
+</ul>
+</li>
+<li>SharedDataSet
+<ul>
+<li>stored in the table dbo.Datasets</li>
+<li>the target item can be linked in the report</li>
+</ul>
+</li>
+<li>Actions and SubReports
+<ul>
+<li>stored in report definition</li>
+<li>Bookmark-Actions are not listed, because they are only references within the report itself, but not to other components</li>
+<li>Report-Actions are also not listed, if they refer to the report name itself or using an expression "=Globals!ReportName"</li>
+<li>More complex references to itself, e.g. using a JavaScript-URL are not filtered out and therefore may be listed</li>
+<li>if possible, the target items are linked in the report - e.g. if identified in same folder or by full path</li>
+</ul>
+</li>
+<li>CodeModules
+<ul>
+<li>stored in report definition</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Permissions
+<ul>
+<li>stored in tables dbo.PolicyUserRole, dbo.Users and dbo.Roles</li>
+</ul>
+</li>
+</ul>
+<h2>Returning the details: DSCatalogDetails</h2>
+<p>The result contains separate rows for each element:</p>
+<ul>
+<li>One row per element containing the basic data, all other columns for Parameters, References, ReferencedBy and Permissions are null</li>
+<li>Multiple rows with Parameters and basic data, all other columns are null
+<ul>
+<li>Static Values and Static Default Values are returned as single columns containing HTML using FLWOR-Statements</li>
+<li>The corresponding textboxes therefore contain data with MarkupType set to "HTML"</li>
+</ul>
+</li>
+<li>Multiple rows with References and basic data, all other columns are null</li>
+<li>Multiple rows with ReferencedBy and basic data, all other columns are null</li>
+<li>Multiple rows with Permissions and basic data, all other columns are null</li>
+</ul>
+<p>Gathering the References is designed using a Common-Table-Expression (CTE). Getting the References and ReferencedBy both uses this CTE - the one way and the other way.</p>
+<p>In addition, the DataSet contains three calculated columns, used for Bookmark-Navigation within report:</p>
+<ul>
+<li>ReferenceDefinition_Unique
+<ul>
+<li>
+<pre>=IIf(Fields!ReferenceDefinition.Value = "", "", Fields!ItemID.Value.ToString() &amp; ":" &amp; Fields!ReferenceDefinition.Value)</pre>
+</li>
+</ul>
+</li>
+<li>ParameterValidValuesDataSetName_Unique
+<ul>
+<li>
+<pre>=IIf(Fields!ParameterValidValuesDataSetName.Value = "", "", Fields!ItemID.Value.ToString() &amp; ":" &amp; Fields!ParameterValidValuesDataSetName.Value)</pre>
+</li>
+</ul>
+</li>
+<li>ParameterDefaultValuesDataSetName_Unique
+<ul>
+<li>
+<pre>=IIf(Fields!ParameterDefaultValuesDataSetName.Value = "", "", Fields!ItemID.Value.ToString() &amp; ":" &amp; Fields!ParameterDefaultValuesDataSetName.Value)</pre>
+</li>
+</ul>
+</li>
+</ul>
+<p>Using the calculated columns is necessary to display and reference the actual Shared DataSet for Valid-Values and Default-Values of a DataSet:</p>
+<ol>
+<li>The Parameter-Rows contain the ItemID of the current report and the in-report name of the DataSet.</li>
+<li>Using both, the referenced ItemID according the separate References-Row could be determined, if the in-report Dataset Name itself refers to a Shared DataSet.</li>
+<li>Doing so, a Bookmark-Link within the report can be added.</li>
+</ol>
+<p>The calculated columns don't add value to the data itself and only necessary for rendering - because of a missing multi-column lookup-function within SSRS. Therefore, I've added them as calculated columns and not in the SQL itself.</p>
+<p>A look at all columns together:</p>
+<p><img width="357" height="775" class="alignnone wp-image-285" alt="" src="./media/Report-ReportData-DSCatalogDetails.png"></p>
+<h1>Conclusion</h1>
+<p>The result became very complex, but in the end, it fulfills the purpose. Knowing the parts and how they fit together, the overall picture should be complex, but no longer complicated.</p>
+
+<h1>Further Reading</h1>
+<ul>
+<li><a href="https://docs.microsoft.com/en-us/sql/reporting-services/reports/report-definition-language-ssrs">SQL Server RDL Specification</a></li>
+<li><a href="https://docs.microsoft.com/en-us/sql/ssms/object/custom-reports-in-management-studio">Custom Reports in Management Studio</a></li>
+<li><a href="https://docs.microsoft.com/en-us/sql/xquery/flwor-statement-and-iteration-xquery">FLWOR Statement and Iteration (XQuery)</a></li>
+</ul>
+	</div><!-- .entry-content -->
+
+
+</article><!-- #post-## -->
+
+			
+		</div><!-- #single-content -->
+
+	</div><!-- #primary -->
+
+
+</div><!-- .site -->
+
+	
+
+		
+
+</body></html>
